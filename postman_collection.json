@@ -1,0 +1,49 @@
+{
+  "info": {
+    "name": "nginx-cb-squid-status-page",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "status-page-examples"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "authUser", "value": "admin" },
+    { "key": "authPass", "value": "changeme" }
+  ],
+  "item": [
+    {
+      "name": "Create HTTP server",
+      "request": {
+        "auth": {"type":"basic","basic":[{"key":"username","value":"{{authUser}}","type":"string"},{"key":"password","value":"{{authPass}}","type":"string"}]},
+        "method": "POST",
+        "header": [{"key":"Content-Type","value":"application/json"}],
+        "url": {"raw":"{{baseUrl}}/servers","host":["{{baseUrl}}"],"path":["servers"]},
+        "body": {"mode":"raw","raw":"{\"name\":\"web1\",\"type\":\"http\",\"host\":\"example.com\",\"port\":80,\"path\":\"/\",\"interval\":30}"}
+      }
+    },
+    {
+      "name": "Create Squid server",
+      "request": {
+        "auth": {"type":"basic","basic":[{"key":"username","value":"{{authUser}}","type":"string"},{"key":"password","value":"{{authPass}}","type":"string"}]},
+        "method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"url":{"raw":"{{baseUrl}}/servers","host":["{{baseUrl}}"],"path":["servers"]},"body":{"mode":"raw","raw":"{\"name\":\"squid1\",\"type\":\"squid\",\"host\":\"10.0.0.5\",\"port\":3128,\"interval\":60}"}
+      }
+    },
+    {"name":"List servers","request":{"method":"GET","url":{"raw":"{{baseUrl}}/servers","host":["{{baseUrl}}"],"path":["servers"]}}},
+    {"name":"Get server","request":{"method":"GET","url":{"raw":"{{baseUrl}}/servers/1","host":["{{baseUrl}}"],"path":["servers","1"]}}},
+    {
+      "name":"Update server",
+      "request": {
+        "auth": {"type":"basic","basic":[{"key":"username","value":"{{authUser}}","type":"string"},{"key":"password","value":"{{authPass}}","type":"string"}]},
+        "method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"url":{"raw":"{{baseUrl}}/servers/1","host":["{{baseUrl}}"],"path":["servers","1"]},"body":{"mode":"raw","raw":"{\"interval\":10}"}
+      }
+    },
+    {
+      "name":"Delete server",
+      "request": {
+        "auth": {"type":"basic","basic":[{"key":"username","value":"{{authUser}}","type":"string"},{"key":"password","value":"{{authPass}}","type":"string"}]},
+        "method":"DELETE","url":{"raw":"{{baseUrl}}/servers/1","host":["{{baseUrl}}"],"path":["servers","1"]}
+      }
+    },
+    {"name":"Get server data","request":{"method":"GET","url":{"raw":"{{baseUrl}}/servers/1/data","host":["{{baseUrl}}"],"path":["servers","1","data"]}}},
+    {"name":"Get server status","request":{"method":"GET","url":{"raw":"{{baseUrl}}/servers/1/status","host":["{{baseUrl}}"],"path":["servers","1","status"]}}}
+  ]
+}

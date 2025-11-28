@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Status Page</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; padding: 24px; }
+      h1 { margin-bottom: 8px; }
+      .server { border: 1px solid #ddd; padding: 12px; margin-bottom: 8px; border-radius: 6px }
+      .ok { color: green }
+      .failed { color: #c0392b }
+      .meta { color: #666; font-size: 0.9em }
+      .grid { display:flex; gap:12px; flex-wrap:wrap }
+      .card { padding:12px; border-radius:6px; background:#fafafa; box-shadow:0 1px 0 rgba(0,0,0,0.02) }
+    </style>
+  </head>
+  <body>
+    <h1>Proxy & HTTP Status Page</h1>
+    <p class="meta">This page queries the local API at <code>http://localhost:8000</code>. Make sure the API is running.</p>
+    <div id="summary" class="grid"></div>
+    <div id="list"></div>
+
+    <script>
+      const baseUrl = (window.BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+      async function fetchJson(path){
+        const res = await fetch(baseUrl + path);
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      }
+
+      function fmtTs(ts){
+        if(!ts) return 'n/a';
+        const d = new Date(ts*1000);
+        return d.toLocaleString();
+      }
+
+      function renderServer(s, status){
+        const div = document.createElement('div');
+        div.className = 'server';
+        const ok = status && status.last_check_ts && status.uptime_pct !== null ? (status.uptime_pct >= 80) : null;
+        div.innerHTML = `
+          <strong>${s.name || ('#' + s.id + ' ' + s.host)}</strong>
+          <div class="meta">${s.type} — ${s.scheme || 'http'}://${s.host}:${s.port}${s.path || ''}</div>
+          <div style="margin-top:8px">
+            <span>Task: <strong>${status && status.task_running ? 'running' : 'stopped'}</strong></span>
+            &nbsp;•&nbsp; <span>Last check: <strong>${fmtTs(status && status.last_check_ts)}</strong></span>
+            &nbsp;•&nbsp; <span>Uptime (last 5): <strong>${status && status.uptime_pct !== null ? status.uptime_pct + '%' : 'n/a'}</strong></span>
+          </div>
+        `;
+        return div;
+      }
+
+      async function refresh(){
+        try{
+          const servers = await fetchJson('/servers');
+          const summary = document.getElementById('summary');
+          const list = document.getElementById('list');
+          summary.innerHTML = '';
+          list.innerHTML = '';
+
+          const total = servers.length;
+          const sCard = document.createElement('div'); sCard.className='card'; sCard.innerHTML = `<strong>Servers</strong><div style="font-size:24px">${total}</div>`;
+          summary.appendChild(sCard);
+
+          // fetch statuses in parallel
+          const tasks = servers.map(s => fetchJson('/servers/' + s.id + '/status').then(r => ({s,r})).catch(e => ({s,r:null,error:e})))
+          const results = await Promise.all(tasks);
+          for(const {s,r,error} of results){
+            list.appendChild(renderServer(s, r));
+          }
+        }catch(err){
+          document.getElementById('list').innerHTML = '<div style="color:crimson">Error: ' + err.message + '</div>';
+        }
+      }
+
+      refresh();
+      setInterval(refresh, 15000);
+    </script>
+  </body>
+</html>
