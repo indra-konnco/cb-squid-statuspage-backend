@@ -49,6 +49,17 @@ async def init_db(path: str = DB_PATH):
             )
             '''
         )
+        await db.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                disabled INTEGER DEFAULT 0,
+                created_at REAL
+            )
+            '''
+        )
         await db.commit()
 
 
@@ -165,5 +176,36 @@ async def get_latest_ping(server_id: int, path: str = DB_PATH) -> Optional[Dict[
     async with aiosqlite.connect(path) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute('SELECT * FROM pings WHERE server_id = ? ORDER BY ts DESC LIMIT 1', (server_id,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def create_user(username: str, password_hash: str, path: str = DB_PATH) -> Optional[Dict[str, Any]]:
+    now = time.time()
+    async with aiosqlite.connect(path) as db:
+        try:
+            cur = await db.execute(
+                'INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)',
+                (username, password_hash, now)
+            )
+            await db.commit()
+            rowid = cur.lastrowid
+            return await get_user_by_id(rowid, path)
+        except Exception:
+            return None
+
+
+async def get_user_by_username(username: str, path: str = DB_PATH) -> Optional[Dict[str, Any]]:
+    async with aiosqlite.connect(path) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute('SELECT * FROM users WHERE username = ?', (username,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def get_user_by_id(user_id: int, path: str = DB_PATH) -> Optional[Dict[str, Any]]:
+    async with aiosqlite.connect(path) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute('SELECT * FROM users WHERE id = ?', (user_id,))
         row = await cur.fetchone()
         return dict(row) if row else None

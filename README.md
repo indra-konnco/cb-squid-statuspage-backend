@@ -45,9 +45,10 @@ The application is configured via environment variables. You can set these in yo
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `AUTH_USERNAME` | `admin` | Username for HTTP Basic Auth (required for POST/PUT/DELETE). |
-| `AUTH_PASSWORD` | `changeme` | Password for HTTP Basic Auth. **Change this in production!** |
+| `SECRET_KEY` | `your-secret-key...` | Secret key for signing JWT tokens. **Change this in production!** |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access token expiration time in minutes. |
 | `SQUID_HTTP_TARGET` | `https://httpbin.org/get` | The target URL used to verify Squid proxy connectivity. The checker attempts to reach this URL *through* the proxy. |
+| `CORS_ORIGINS` | `*` | Comma-separated list of allowed origins for CORS. Use `*` for all origins (development) or specify domains like `https://yourdomain.com,https://app.yourdomain.com` (production). |
 
 ---
 
@@ -56,9 +57,8 @@ The application is configured via environment variables. You can set these in yo
 Start the server using `uvicorn`. This command starts the application on port 8000 with auto-reload enabled (useful for development).
 
 ```bash
-# Set credentials (optional, defaults used if omitted)
-export AUTH_USERNAME='myadmin'
-export AUTH_PASSWORD='mypassword'
+# Set configuration (optional, defaults used if omitted)
+export SECRET_KEY='my-super-secret-key'
 
 # Start the server
 uvicorn backend.app:app --reload --port 8000
@@ -71,9 +71,10 @@ Once running, the API is accessible at `http://127.0.0.1:8000`.
 ## Usage Guide
 
 ### Authentication
-Management endpoints (`POST`, `PUT`, `DELETE`) require HTTP Basic Authentication.
--   **User**: Value of `AUTH_USERNAME`
--   **Password**: Value of `AUTH_PASSWORD`
+Management endpoints (`POST`, `PUT`, `DELETE`) require a valid **JWT Access Token**.
+1.  **Register** a new user.
+2.  **Login** to obtain an access token.
+3.  Include the token in the `Authorization` header: `Bearer <token>`.
 
 Read-only endpoints (`GET`) are public and do not require authentication.
 
@@ -81,11 +82,32 @@ Read-only endpoints (`GET`) are public and do not require authentication.
 
 You can manage servers using `curl`, Postman, or the interactive Swagger UI at `http://127.0.0.1:8000/docs`.
 
-#### 1. Register an HTTP Server
-To monitor a standard web server:
+#### 1. Register a User
+```bash
+curl -X POST 'http://127.0.0.1:8000/auth/register' \
+  -H 'Content-Type: application/json' \
+  -d '{"username": "admin", "password": "securepassword"}'
+```
+
+#### 2. Login to Get Token
+```bash
+curl -X POST 'http://127.0.0.1:8000/auth/login' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'username=admin&password=securepassword'
+```
+Response:
+```json
+{"access_token": "eyJhbGci...", "token_type": "bearer"}
+```
+
+#### 3. Register an HTTP Server (Protected)
+To monitor a standard web server (requires token):
 
 ```bash
-curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' \
+TOKEN="your_access_token_here"
+
+curl -X POST 'http://127.0.0.1:8000/servers' \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "Production Web",
@@ -97,11 +119,12 @@ curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' \
   }'
 ```
 
-#### 2. Register a Squid Proxy
-To monitor a Squid proxy. The checker will attempt to connect to `SQUID_HTTP_TARGET` through this proxy.
+#### 4. Register a Squid Proxy (Protected)
+To monitor a Squid proxy (requires token):
 
 ```bash
-curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' \
+curl -X POST 'http://127.0.0.1:8000/servers' \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "Gateway Proxy",
@@ -112,15 +135,15 @@ curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' \
   }'
 ```
 
-#### 3. List All Servers
+#### 5. List All Servers (Public)
 ```bash
 curl 'http://127.0.0.1:8000/servers'
 ```
 
-#### 4. View Server Status & History
+#### 6. View Server Status & History (Public)
 Get the server details, latest ping status, and the last 100 ping records.
 ```bash
-curl 'http://127.0.0.1:8000/servers/1/data'
+curl 'http://127.0.0.1:8000/servers/1/status'
 ```
 
 ---

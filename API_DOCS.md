@@ -12,6 +12,7 @@
 - Configure credentials via environment variables:
   - `AUTH_USERNAME` (default: `admin`)
   - `AUTH_PASSWORD` (default: `changeme`)
+  - `CORS_ORIGINS` (default: `*`) - Comma-separated list of allowed origins or `*` for all
 - All GET endpoints are public (no auth required).
 - Example with curl: `curl -u admin:changeme -X POST 'http://localhost:8000/servers' ...`
 
@@ -32,14 +33,11 @@
 
 - **GET /http**: List servers with `type == 'http'` or `type == 'nginx'`.
 
-- **GET /servers/{server_id}/data**: Returns `server`, `latest` ping, and `history` (last 100 pings) for any server (squid or http/nginx).
-
-- **GET /servers/{server_id}/status**: Lightweight status for the status page and debugging:
+- **GET /servers/{server_id}/status**: Returns complete server status and history:
   - `server`: server record
+  - `latest`: most recent ping result
+  - `history`: last 100 pings in reverse chronological order
   - `task_running`: whether a checker task is active for this server
-  - `last_check_ts`: timestamp of last check
-  - `uptime_pct`: uptime percentage based on last 5 pings
-  - `last_5_pings`: last 5 pings in chronological order
 
 **Models (summary)**
 - `ServerCreate`: {name?, type, host, port?, scheme? (http|https), path?, interval?}
@@ -65,9 +63,9 @@ curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' -H 'Content-Type:
 curl -u admin:changeme -X PUT 'http://127.0.0.1:8000/servers/1' -H 'Content-Type: application/json' -d '{"interval":10}'
 ```
 
-- Read server data (no auth required):
+- Read server status and history (no auth required):
 ```
-curl 'http://127.0.0.1:8000/servers/1/data'
+curl 'http://127.0.0.1:8000/servers/1/status'
 ```
 
 **Run locally**
@@ -78,6 +76,7 @@ pip install -r backend/requirements.txt
 export AUTH_USERNAME='admin'              # optional (default: admin)
 export AUTH_PASSWORD='changeme'           # optional (default: changeme)
 export SQUID_HTTP_TARGET='https://httpbin.org/get'   # optional override
+export CORS_ORIGINS='*'                   # optional (default: *, or comma-separated origins)
 uvicorn backend.app:app --reload --port 8000
 ```
 

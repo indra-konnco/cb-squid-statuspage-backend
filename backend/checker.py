@@ -42,7 +42,7 @@ async def check_squid_proxy(host: str, port: int = 3128, test_url: Optional[str]
     proxy = f'http://{host}:{port}'
     start = time.monotonic()
     try:
-        async with httpx.AsyncClient(proxies={"http://": proxy, "https://": proxy}, timeout=timeout) as client:
+        async with httpx.AsyncClient(proxy=proxy, timeout=timeout) as client:
             resp = await client.get(test_url)
         elapsed = (time.monotonic() - start) * 1000.0
         return {
