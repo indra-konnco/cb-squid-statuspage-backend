@@ -178,9 +178,47 @@ curl 'http://127.0.0.1:8000/servers/1/status'
 
 ---
 
-## Configuration
+## Bulk Server Management
 
-For full details on all available endpoints, schemas, and parameters:
+### Bulk Add Servers from File
+
+A bash script is provided to bulk-add HTTP servers from a list file (`bulk-list-cb.txt`).
+
+**Quick Start:**
+
+```bash
+# 1. Ensure backend is running on port 8000
+uvicorn backend.app:app --port 8000 &
+
+# 2. Edit bulk-list-cb.txt with your hostnames (one per line)
+
+# 3. Run the bulk add script
+./bulk-add-servers.sh
+
+# Or with custom API endpoint and credentials:
+./bulk-add-servers.sh https://api.example.com admin changeme operator securepass
+```
+
+**Configuration:**
+
+All servers added via the script are configured with:
+- Port: `443` (HTTPS)
+- Path: `/api/callback-wormhole`
+- Interval: `30` seconds
+- Scheme: `https`
+
+**Features:**
+
+- Automatic user registration (register if doesn't exist, login to get JWT token)
+- Color-coded output for easy monitoring
+- Handles 100+ servers efficiently
+- Detailed success/failure reporting
+
+For detailed documentation, see **[BULK_ADD_SCRIPT.md](BULK_ADD_SCRIPT.md)**.
+
+---
+
+## API Documentation
 
 1.  Start the application.
 2.  Open **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** in your browser.
