@@ -8,13 +8,14 @@
 - Squid check target is configured through the environment variable `SQUID_HTTP_TARGET` (default `https://httpbin.org/get`).
 
 **Authentication**
-- HTTP Basic Auth required for CRUD operations (POST, PUT, DELETE).
-- Configure credentials via environment variables:
-  - `AUTH_USERNAME` (default: `admin`)
-  - `AUTH_PASSWORD` (default: `changeme`)
-  - `CORS_ORIGINS` (default: `*`) - Comma-separated list of allowed origins or `*` for all
-- All GET endpoints are public (no auth required).
-- Example with curl: `curl -u admin:changeme -X POST 'http://localhost:8000/servers' ...`
+- **User Registration (POST /auth/register)**: Protected with HTTP Basic Auth using root credentials.
+  - Credentials from environment variables:
+    - `AUTH_ROOT_USERNAME` (default: `admin`)
+    - `AUTH_ROOT_PASSWORD` (default: `changeme`)
+  - Example: `curl -u admin:changeme -X POST 'http://localhost:8000/auth/register' ...`
+- **User Login (POST /auth/login)**: Public endpoint to obtain JWT access token.
+- **CRUD Operations (POST/PUT/DELETE /servers)**: Require valid JWT access token in `Authorization: Bearer <token>` header.
+- **Read Operations (GET)**: Public endpoints, no authentication required.
 
 **Endpoints**
 - **POST /servers**: Create a server.
@@ -46,21 +47,37 @@
 - `Ping` rows in DB: {id, server_id, ts, ok, status_code, latency_ms, error, headers}
 
 **Examples**
-- Create HTTP server:
+- Register a new user (requires root credentials):
 ```
-curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' -H 'Content-Type: application/json' \
+curl -u admin:changeme -X POST 'http://127.0.0.1:8000/auth/register' -H 'Content-Type: application/json' \
+  -d '{"username":"operator","password":"securepass"}'
+```
+
+- Login to get JWT token:
+```
+curl -X POST 'http://127.0.0.1:8000/auth/login' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'username=operator&password=securepass'
+```
+
+- Create HTTP server (requires JWT token):
+```
+TOKEN="eyJhbGci..."
+curl -X POST 'http://127.0.0.1:8000/servers' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name":"web1","type":"http","host":"example.com","port":80,"path":"/","interval":30}'
 ```
 
 - Create Squid proxy (uses `SQUID_HTTP_TARGET` by default):
 ```
-curl -u admin:changeme -X POST 'http://127.0.0.1:8000/servers' -H 'Content-Type: application/json' \
+TOKEN="eyJhbGci..."
+curl -X POST 'http://127.0.0.1:8000/servers' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name":"squid1","type":"squid","host":"10.0.0.5","port":3128,"interval":60}'
 ```
 
 - Update interval only:
 ```
-curl -u admin:changeme -X PUT 'http://127.0.0.1:8000/servers/1' -H 'Content-Type: application/json' -d '{"interval":10}'
+TOKEN="eyJhbGci..."
+curl -X PUT 'http://127.0.0.1:8000/servers/1' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"interval":10}'
 ```
 
 - Read server status and history (no auth required):
@@ -73,12 +90,21 @@ curl 'http://127.0.0.1:8000/servers/1/status'
 python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
-export AUTH_USERNAME='admin'              # optional (default: admin)
-export AUTH_PASSWORD='changeme'           # optional (default: changeme)
+
+# Option 1: Use .env file (recommended for local development)
+cp .env.example .env
+# Edit .env with your desired values
+uvicorn backend.app:app --reload --port 8000
+
+# Option 2: Set environment variables directly
+export AUTH_ROOT_USERNAME='admin'            # optional (default: admin)
+export AUTH_ROOT_PASSWORD='changeme'         # optional (default: changeme)
 export SQUID_HTTP_TARGET='https://httpbin.org/get'   # optional override
-export CORS_ORIGINS='*'                   # optional (default: *, or comma-separated origins)
+export CORS_ORIGINS='*'                     # optional (default: *, or comma-separated origins)
 uvicorn backend.app:app --reload --port 8000
 ```
+
+The `.env` file is automatically loaded at startup if it exists in the project root.
 
 **Notes & Extensibility**
 - The app exposes the OpenAPI spec at `GET /openapi.json` and interactive docs at `/docs` and `/redoc` (FastAPI built-ins).

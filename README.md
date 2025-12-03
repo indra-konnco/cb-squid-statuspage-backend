@@ -41,12 +41,33 @@ Prerequisites: Python 3.8+
 
 ## Configuration
 
-The application is configured via environment variables. You can set these in your shell or use a `.env` file (if you add `python-dotenv` support, otherwise export them directly).
+The application is configured via environment variables. You can set these in your shell or use a `.env` file for convenience during local development.
+
+### Using a `.env` File (Recommended for Development)
+
+1. Copy the example file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` with your desired configuration:
+   ```
+   AUTH_USERNAME=admin
+   AUTH_PASSWORD=changeme
+   SQUID_HTTP_TARGET=https://httpbin.org/get
+   ```
+
+3. Start the application — the `.env` file is automatically loaded:
+   ```bash
+   uvicorn backend.app:app --reload --port 8000
+   ```
+
+### Environment Variables
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `SECRET_KEY` | `your-secret-key...` | Secret key for signing JWT tokens. **Change this in production!** |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access token expiration time in minutes. |
+| `AUTH_ROOT_USERNAME` | `admin` | Username for root user registration (HTTP Basic Auth). |
+| `AUTH_ROOT_PASSWORD` | `changeme` | Password for root user registration (HTTP Basic Auth). |
 | `SQUID_HTTP_TARGET` | `https://httpbin.org/get` | The target URL used to verify Squid proxy connectivity. The checker attempts to reach this URL *through* the proxy. |
 | `CORS_ORIGINS` | `*` | Comma-separated list of allowed origins for CORS. Use `*` for all origins (development) or specify domains like `https://yourdomain.com,https://app.yourdomain.com` (production). |
 
@@ -57,10 +78,12 @@ The application is configured via environment variables. You can set these in yo
 Start the server using `uvicorn`. This command starts the application on port 8000 with auto-reload enabled (useful for development).
 
 ```bash
-# Set configuration (optional, defaults used if omitted)
-export SECRET_KEY='my-super-secret-key'
+# If using .env file (recommended)
+uvicorn backend.app:app --reload --port 8000
 
-# Start the server
+# Or set variables directly in the shell
+export AUTH_USERNAME='admin'
+export AUTH_PASSWORD='changeme'
 uvicorn backend.app:app --reload --port 8000
 ```
 
@@ -71,40 +94,49 @@ Once running, the API is accessible at `http://127.0.0.1:8000`.
 ## Usage Guide
 
 ### Authentication
-Management endpoints (`POST`, `PUT`, `DELETE`) require a valid **JWT Access Token**.
-1.  **Register** a new user.
-2.  **Login** to obtain an access token.
-3.  Include the token in the `Authorization` header: `Bearer <token>`.
 
-Read-only endpoints (`GET`) are public and do not require authentication.
+The application uses a **two-tier authentication system**:
+
+1. **Root User Registration** (HTTP Basic Auth):
+   - Protect user registration with root credentials (`AUTH_ROOT_USERNAME` / `AUTH_ROOT_PASSWORD`).
+   - Only the root user can register new application users.
+   - Once users are registered, they can login to receive JWT tokens.
+
+2. **User Login & CRUD Operations** (JWT):
+   - Regular users register their credentials (HTTP Basic Auth protected).
+   - Users login to receive JWT access tokens.
+   - JWT tokens are used to perform CRUD operations (create/update/delete servers).
+   - Tokens expire after 30 minutes.
+
+3. **Public Read Operations**:
+   - All GET endpoints are public (no authentication required).
 
 ### Managing Servers
 
 You can manage servers using `curl`, Postman, or the interactive Swagger UI at `http://127.0.0.1:8000/docs`.
 
-#### 1. Register a User
+#### 1. Register a New User (Root Auth Required)
 ```bash
-curl -X POST 'http://127.0.0.1:8000/auth/register' \
+curl -u admin:changeme -X POST 'http://127.0.0.1:8000/auth/register' \
   -H 'Content-Type: application/json' \
-  -d '{"username": "admin", "password": "securepassword"}'
+  -d '{"username":"operator","password":"securepass"}'
 ```
 
-#### 2. Login to Get Token
+#### 2. Login to Get JWT Token
 ```bash
 curl -X POST 'http://127.0.0.1:8000/auth/login' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
-  -d 'username=admin&password=securepassword'
+  -d 'username=operator&password=securepass'
 ```
+
 Response:
 ```json
 {"access_token": "eyJhbGci...", "token_type": "bearer"}
 ```
 
-#### 3. Register an HTTP Server (Protected)
-To monitor a standard web server (requires token):
-
+#### 3. Create an HTTP Server (JWT Token Required)
 ```bash
-TOKEN="your_access_token_here"
+TOKEN="eyJhbGci..."
 
 curl -X POST 'http://127.0.0.1:8000/servers' \
   -H "Authorization: Bearer $TOKEN" \
@@ -119,9 +151,7 @@ curl -X POST 'http://127.0.0.1:8000/servers' \
   }'
 ```
 
-#### 4. Register a Squid Proxy (Protected)
-To monitor a Squid proxy (requires token):
-
+#### 4. Create a Squid Proxy Server (JWT Token Required)
 ```bash
 curl -X POST 'http://127.0.0.1:8000/servers' \
   -H "Authorization: Bearer $TOKEN" \
@@ -148,7 +178,7 @@ curl 'http://127.0.0.1:8000/servers/1/status'
 
 ---
 
-## API Documentation
+## Configuration
 
 For full details on all available endpoints, schemas, and parameters:
 

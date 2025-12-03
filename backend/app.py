@@ -4,7 +4,9 @@ import sys
 import os
 import base64
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from dotenv import load_dotenv
+
+from fastapi import FastAPI, HTTPException, Depends, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
@@ -17,6 +19,9 @@ from backend import models
 
 import asyncio
 import time
+
+# Load environment variables from .env file (if it exists)
+load_dotenv()
 
 # Configure logging to STDOUT
 logging.basicConfig(
@@ -34,6 +39,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*')
+AUTH_ROOT_USERNAME = os.getenv('AUTH_ROOT_USERNAME', 'admin')
+AUTH_ROOT_PASSWORD = os.getenv('AUTH_ROOT_PASSWORD', 'changeme')
 
 # Parse CORS origins (comma-separated list or "*" for all)
 if CORS_ORIGINS == '*':
@@ -56,6 +63,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # in-memory map of running check tasks: server_id -> asyncio.Task
 _tasks: Dict[int, asyncio.Task] = {}
+
+
+# Root auth dependency for user registration
+async def get_root_auth(authorization: Optional[str] = Header(None)) -> bool:
+    """Verify HTTP Basic Auth with root credentials from Authorization header."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail='Missing authorization header')
+    
+    if not authorization.startswith('Basic '):
+        raise HTTPException(status_code=401, detail='Invalid authorization scheme')
+    
+    try:
+        encoded = authorization[6:]  # Remove 'Basic ' prefix
+        decoded = base64.b64decode(encoded).decode('utf-8')
+        username, password = decoded.split(':', 1)
+        
+        if username == AUTH_ROOT_USERNAME and password == AUTH_ROOT_PASSWORD:
+            return True
+        else:
+            raise HTTPException(status_code=401, detail='Invalid credentials')
+    except Exception:
+        raise HTTPException(status_code=401, detail='Invalid credentials')
 
 
 # Auth functions
@@ -171,11 +200,12 @@ async def shutdown():
 
 
 @app.post("/auth/register", response_model=models.User)
-async def register(user: models.UserCreate):
+async def register(user: models.UserCreate, _: bool = Depends(get_root_auth)):
     db_user = await db.get_user_by_username(user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     hashed_password = get_password_hash(user.password)
+    logger.info(f"New user registered: {user.username}")
     return await db.create_user(user.username, hashed_password)
 
 

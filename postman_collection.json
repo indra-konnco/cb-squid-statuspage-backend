@@ -10,12 +10,20 @@
       "value": "http://localhost:8000"
     },
     {
-      "key": "authUser",
+      "key": "rootUser",
       "value": "admin"
     },
     {
-      "key": "authPass",
+      "key": "rootPass",
       "value": "changeme"
+    },
+    {
+      "key": "authUser",
+      "value": "operator"
+    },
+    {
+      "key": "authPass",
+      "value": "securepass"
     },
     {
       "key": "accessToken",
@@ -26,6 +34,21 @@
     {
       "name": "Register User",
       "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{rootUser}}",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{rootPass}}",
+              "type": "string"
+            }
+          ]
+        },
         "method": "POST",
         "header": [
           {

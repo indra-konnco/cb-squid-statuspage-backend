@@ -1,2 +1,5 @@
 .pytest_cache
 .venv
+.env
+backend/data.db
+__pycache__
