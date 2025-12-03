@@ -207,23 +207,73 @@
       }
     },
     {
-      "name": "Get server",
+      "name": "List HTTP servers",
       "request": {
         "method": "GET",
         "url": {
-          "raw": "{{baseUrl}}/servers/1",
+          "raw": "{{baseUrl}}/servers/http",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "servers",
+            "http"
+          ]
+        }
+      }
+    },
+    {
+      "name": "List Squid servers",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/servers/squid",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "servers",
+            "squid"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get HTTP server",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/servers/http/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "servers",
+            "http",
             "1"
           ]
         }
       }
     },
     {
-      "name": "Update server",
+      "name": "Get Squid server",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/servers/squid/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "servers",
+            "squid",
+            "1"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update HTTP server",
       "request": {
         "auth": {
           "type": "bearer",
@@ -243,23 +293,61 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/servers/1",
+          "raw": "{{baseUrl}}/servers/http/1",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "servers",
+            "http",
             "1"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\"interval\":10}"
+          "raw": "{\"interval\":20}"
         }
       }
     },
     {
-      "name": "Delete server",
+      "name": "Update Squid server",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/servers/squid/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "servers",
+            "squid",
+            "1"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"interval\":45}"
+        }
+      }
+    },
+    {
+      "name": "Delete HTTP server",
       "request": {
         "auth": {
           "type": "bearer",
@@ -273,28 +361,75 @@
         },
         "method": "DELETE",
         "url": {
-          "raw": "{{baseUrl}}/servers/1",
+          "raw": "{{baseUrl}}/servers/http/1",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "servers",
+            "http",
             "1"
           ]
         }
       }
     },
     {
-      "name": "Get server status",
+      "name": "Delete Squid server",
       "request": {
-        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
         "url": {
-          "raw": "{{baseUrl}}/servers/1/status",
+          "raw": "{{baseUrl}}/servers/squid/1",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "servers",
+            "squid",
+            "1"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get HTTP server status",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/servers/http/1/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "servers",
+            "http",
+            "1",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Squid server status",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/servers/squid/1/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "servers",
+            "squid",
             "1",
             "status"
           ]

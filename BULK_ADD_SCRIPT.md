@@ -91,47 +91,41 @@ This will:
 
 ### HTTP Server List (`http-domains.txt`)
 
-**Format:** `{server_name} {hostname}` (space-separated)
-
-One HTTP server per line with name and hostname:
+One domain/hostname per line:
 
 ```
-api-aryagunasatria api.aryagunasatria.com
-api-berkahvista api.berkahvista.com
-api-delapantiang api.delapantiang.com
+api.aryagunasatria.com
+api.berkahvista.com
+api.delapantiang.com
 # Comments are supported
-api-sonarmatrix api.sonarmatrix.com
+api.sonarmatrix.com
 ```
-
-**Supported formats:**
-- Full format (recommended): `api-example api.example.com`
-- Simple format: `api.example.com` (uses hostname as both name and host)
 
 ### Squid Proxy List (`squid-ips.txt`)
 
-**Format:** `{server_name} {ip_address}:{port}` (space-separated)
+**Format:** `{server_name}\t{ip_address}:{port}` (tab-separated)
 
 One Squid proxy per line with name and IP:port:
 
 ```
-proxy-asia 192.168.1.1:3128
-proxy-eu 192.168.1.2:3128
-proxy-us 10.0.0.1:3128
+proxy-asia	192.168.1.1:3128
+proxy-eu	192.168.1.2:3128
+proxy-us	10.0.0.1:3128
 # Comments are supported
-proxy-backup 172.16.0.5:3128
+proxy-backup	172.16.0.5:3128
 ```
 
 **Supported formats:**
-- Full format (recommended): `proxy-name 192.168.1.1:3128`
-- Simple format: `192.168.1.1` (uses IP as name, default port 3128)
+- Full format (recommended): `proxy-name	192.168.1.1:3128`
+- Simple format: `192.168.1.1` (uses default port 3128, name is `squid-192.168.1.1`)
 - Custom port: Any port can be specified after the colon
 
 **Rules (both file types):**
 - One entry per line
 - Empty lines are ignored
 - Lines starting with `#` are treated as comments and skipped
-- Whitespace (spaces at start/end) is trimmed automatically
-- Use space to separate server name from hostname/IP:port
+- Whitespace (spaces/tabs at start/end) is trimmed automatically
+- For Squid, use tab character to separate server name from IP:port
 
 ## How It Works
 
@@ -148,12 +142,12 @@ proxy-backup 172.16.0.5:3128
 
 ### Step 4: Bulk Add Servers
 - Iterates through each entry in the input file
-- **For HTTP servers:** Each line can be in two formats:
-  - Full format: `{server_name} {hostname}` → uses provided name and hostname
-  - Simple format: `{hostname}` → uses hostname as both name and host
+- **For HTTP servers:** Each line is a domain/hostname
+  - Creates server with that hostname
+  - Generates name: `http-{hostname}`
 - **For Squid proxies:** Each line can be in two formats:
-  - Full format: `{server_name} {ip}:{port}` → uses provided name and IP:port
-  - Simple format: `{ip}` or `{ip}:{port}` → uses IP as name, provided/default port
+  - Tab-separated: `{server_name}\t{ip}:{port}` → uses provided name and IP:port
+  - Simple: `{ip}` or `{ip}:{port}` → generates name as `squid-{ip}`, uses provided/default port
 - Logs success/failure for each server
 - Reports summary statistics
 

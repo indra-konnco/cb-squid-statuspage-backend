@@ -240,6 +240,36 @@ async def list_all_servers():
     return await db.list_servers()
 
 
+@app.get('/servers/squid', response_model=List[models.ServerOut])
+async def list_squid():
+    return await db.list_servers_by_type('squid')
+
+
+@app.get('/servers/http', response_model=List[models.ServerOut])
+async def list_http():
+    # allow both 'http' and 'nginx'
+    all = await db.list_servers()
+    return [s for s in all if s['type'] in ('http', 'nginx')]
+
+
+# Type-specific GET endpoints (must come before generic {server_id})
+@app.get('/servers/http/{server_id}', response_model=models.ServerOut)
+async def get_http_server(server_id: int):
+    row = await db.get_server(server_id)
+    if not row or row['type'] not in ('http', 'nginx'):
+        raise HTTPException(status_code=404, detail='HTTP server not found')
+    return row
+
+
+@app.get('/servers/squid/{server_id}', response_model=models.ServerOut)
+async def get_squid_server(server_id: int):
+    row = await db.get_server(server_id)
+    if not row or row['type'] not in ('squid', 'proxy'):
+        raise HTTPException(status_code=404, detail='Squid server not found')
+    return row
+
+
+# Generic GET endpoint (fallback)
 @app.get('/servers/{server_id}', response_model=models.ServerOut)
 async def get_server(server_id: int):
     row = await db.get_server(server_id)
@@ -248,6 +278,32 @@ async def get_server(server_id: int):
     return row
 
 
+# Type-specific PUT endpoints
+@app.put('/servers/http/{server_id}', response_model=models.ServerOut)
+async def update_http_server(server_id: int, payload: models.ServerUpdate, current_user: models.User = Depends(get_current_user)):
+    row = await db.get_server(server_id)
+    if not row or row['type'] not in ('http', 'nginx'):
+        raise HTTPException(status_code=404, detail='HTTP server not found')
+    logger.info(f"Updating HTTP server {server_id}: {payload.dict(exclude_unset=True)} by user {current_user['username']}")
+    updated = await db.update_server(server_id, payload.dict(exclude_unset=True))
+    _start_task_for_server(updated)
+    logger.info(f"HTTP server {server_id} updated and task restarted")
+    return updated
+
+
+@app.put('/servers/squid/{server_id}', response_model=models.ServerOut)
+async def update_squid_server(server_id: int, payload: models.ServerUpdate, current_user: models.User = Depends(get_current_user)):
+    row = await db.get_server(server_id)
+    if not row or row['type'] not in ('squid', 'proxy'):
+        raise HTTPException(status_code=404, detail='Squid server not found')
+    logger.info(f"Updating Squid server {server_id}: {payload.dict(exclude_unset=True)} by user {current_user['username']}")
+    updated = await db.update_server(server_id, payload.dict(exclude_unset=True))
+    _start_task_for_server(updated)
+    logger.info(f"Squid server {server_id} updated and task restarted")
+    return updated
+
+
+# Generic PUT endpoint (fallback)
 @app.put('/servers/{server_id}', response_model=models.ServerOut)
 async def update_server(server_id: int, payload: models.ServerUpdate, current_user: models.User = Depends(get_current_user)):
     logger.info(f"Updating server {server_id}: {payload.dict(exclude_unset=True)} by user {current_user['username']}")
@@ -260,6 +316,44 @@ async def update_server(server_id: int, payload: models.ServerUpdate, current_us
     return row
 
 
+# Type-specific DELETE endpoints
+@app.delete('/servers/http/{server_id}')
+async def delete_http_server(server_id: int, current_user: models.User = Depends(get_current_user)):
+    row = await db.get_server(server_id)
+    if not row or row['type'] not in ('http', 'nginx'):
+        raise HTTPException(status_code=404, detail='HTTP server not found')
+    logger.info(f"Deleting HTTP server {server_id} by user {current_user['username']}")
+    _cancel_task(server_id)
+    await db.delete_server(server_id)
+    remaining = await db.list_servers()
+    if not remaining:
+        logger.info('No servers left after delete; cancelling all checker tasks')
+        for sid in list(_tasks.keys()):
+            _cancel_task(sid)
+        _tasks.clear()
+    logger.info(f"HTTP server {server_id} deleted")
+    return {'ok': True}
+
+
+@app.delete('/servers/squid/{server_id}')
+async def delete_squid_server(server_id: int, current_user: models.User = Depends(get_current_user)):
+    row = await db.get_server(server_id)
+    if not row or row['type'] not in ('squid', 'proxy'):
+        raise HTTPException(status_code=404, detail='Squid server not found')
+    logger.info(f"Deleting Squid server {server_id} by user {current_user['username']}")
+    _cancel_task(server_id)
+    await db.delete_server(server_id)
+    remaining = await db.list_servers()
+    if not remaining:
+        logger.info('No servers left after delete; cancelling all checker tasks')
+        for sid in list(_tasks.keys()):
+            _cancel_task(sid)
+        _tasks.clear()
+    logger.info(f"Squid server {server_id} deleted")
+    return {'ok': True}
+
+
+# Generic DELETE endpoint (fallback)
 @app.delete('/servers/{server_id}')
 async def delete_server(server_id: int, current_user: models.User = Depends(get_current_user)):
     logger.info(f"Deleting server {server_id} by user {current_user['username']}")
@@ -276,18 +370,50 @@ async def delete_server(server_id: int, current_user: models.User = Depends(get_
     return {'ok': True}
 
 
-@app.get('/squid')
-async def list_squid():
-    return await db.list_servers_by_type('squid')
+# Type-specific status endpoints
+@app.get('/servers/http/{server_id}/status')
+async def http_server_status(server_id: int):
+    """
+    Get HTTP server status with full history and monitoring data.
+    """
+    s = await db.get_server(server_id)
+    if not s or s['type'] not in ('http', 'nginx'):
+        raise HTTPException(status_code=404, detail='HTTP server not found')
+    
+    latest = await db.get_latest_ping(server_id)
+    history = await db.get_pings(server_id, limit=100)
+    task_running = server_id in _tasks and not _tasks[server_id].done()
+    
+    return {
+        'server': s,
+        'latest': latest,
+        'history': history,
+        'task_running': task_running,
+    }
 
 
-@app.get('/http')
-async def list_http():
-    # allow both 'http' and 'nginx'
-    all = await db.list_servers()
-    return [s for s in all if s['type'] in ('http', 'nginx')]
+@app.get('/servers/squid/{server_id}/status')
+async def squid_server_status(server_id: int):
+    """
+    Get Squid server status with full history and monitoring data.
+    """
+    s = await db.get_server(server_id)
+    if not s or s['type'] not in ('squid', 'proxy'):
+        raise HTTPException(status_code=404, detail='Squid server not found')
+    
+    latest = await db.get_latest_ping(server_id)
+    history = await db.get_pings(server_id, limit=100)
+    task_running = server_id in _tasks and not _tasks[server_id].done()
+    
+    return {
+        'server': s,
+        'latest': latest,
+        'history': history,
+        'task_running': task_running,
+    }
 
 
+# Generic status endpoint (fallback)
 @app.get('/servers/{server_id}/status')
 async def server_status(server_id: int):
     """

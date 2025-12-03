@@ -45,15 +45,15 @@ The application is configured via environment variables. You can set these in yo
 
 ### Using a `.env` File (Recommended for Development)
 
-1. Copy the example file:
+1. Copy the example file into the `backend` folder:
    ```bash
-   cp .env.example .env
+   cp backend/.env.example backend/.env
    ```
 
-2. Edit `.env` with your desired configuration:
+2. Edit `backend/.env` with your desired configuration:
    ```
-   AUTH_USERNAME=admin
-   AUTH_PASSWORD=changeme
+   AUTH_ROOT_USERNAME=admin
+   AUTH_ROOT_PASSWORD=changeme
    SQUID_HTTP_TARGET=https://httpbin.org/get
    ```
 
@@ -61,6 +61,8 @@ The application is configured via environment variables. You can set these in yo
    ```bash
    uvicorn backend.app:app --reload --port 8000
    ```
+
+**Important:** The `.env` file must be placed in the `backend/` folder (same location as `app.py`) for it to be loaded correctly.
 
 ### Environment Variables
 
@@ -170,10 +172,64 @@ curl -X POST 'http://127.0.0.1:8000/servers' \
 curl 'http://127.0.0.1:8000/servers'
 ```
 
-#### 6. View Server Status & History (Public)
-Get the server details, latest ping status, and the last 100 ping records.
+#### 6. List Only HTTP Servers (Public)
 ```bash
-curl 'http://127.0.0.1:8000/servers/1/status'
+curl 'http://127.0.0.1:8000/servers/http'
+```
+
+#### 7. List Only Squid Proxies (Public)
+```bash
+curl 'http://127.0.0.1:8000/servers/squid'
+```
+
+#### 8. Get HTTP Server by ID (Public)
+```bash
+curl 'http://127.0.0.1:8000/servers/http/1'
+```
+
+#### 9. Get Squid Server by ID (Public)
+```bash
+curl 'http://127.0.0.1:8000/servers/squid/1'
+```
+
+#### 10. View HTTP Server Status & History (Public)
+```bash
+curl 'http://127.0.0.1:8000/servers/http/1/status'
+```
+
+#### 11. View Squid Server Status & History (Public)
+```bash
+curl 'http://127.0.0.1:8000/servers/squid/1/status'
+```
+
+#### 12. Update HTTP Server (JWT Token Required)
+```bash
+TOKEN="eyJhbGci..."
+
+curl -X PUT 'http://127.0.0.1:8000/servers/http/1' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"interval": 20}'
+```
+
+#### 13. Update Squid Server (JWT Token Required)
+```bash
+curl -X PUT 'http://127.0.0.1:8000/servers/squid/1' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"interval": 45}'
+```
+
+#### 14. Delete HTTP Server (JWT Token Required)
+```bash
+curl -X DELETE 'http://127.0.0.1:8000/servers/http/1' \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### 15. Delete Squid Server (JWT Token Required)
+```bash
+curl -X DELETE 'http://127.0.0.1:8000/servers/squid/1' \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
